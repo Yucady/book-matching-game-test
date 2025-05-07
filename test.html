@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>세계 책의 날 - 책 내용 매칭 게임</title>
+    <style>
+        body {
+            font-family: 'Nanum Gothic', sans-serif;
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 20px;
+        }
+        
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            background-color: #ecf0f1;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            height: 120px;
+            background-color: #3498db;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.3s, background-color 0.3s;
+            perspective: 1000px;
+        }
+        
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+        
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        
+        .card-front {
+            background-color: #3498db;
+            color: white;
+            font-size: 24px;
+        }
+        
+        .card-back {
+            background-color: #f8f9fa;
+            color: #333;
+            transform: rotateY(180deg);
+            font-size: 14px;
+            overflow: auto;
+            text-align: left;
+            border: 2px solid #3498db;
+        }
+        
+        .card:hover {
+            transform: scale(1.03);
+        }
+        
+        .card.matched {
+            background-color: #2ecc71;
+            cursor: default;
+        }
+        
+        .card.matched .card-front {
+            background-color: #2ecc71;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin: 10px;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        #result {
+            font-size: 18px;
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #e8f4fc;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .difficulty-selector {
+            margin-bottom: 20px;
+        }
+        
+        #intro-screen {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        #game-screen {
+            display: none;
+        }
+        
+        #final-screen {
+            display: none;
+            text-align: center;
+        }
+        
+        .star-rating {
+            font-size: 32px;
+            color: gold;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="intro-screen">
+            <h1>세계 책의 날 기념 북퀴즈</h1>
+            <p class="subtitle">고전 문학부터 현대 문학까지, 당신의 독서 기억력을 테스트해보세요!</p>
+            
+            <div class="difficulty-selector">
+                <p>난이도를 선택하세요:</p>
+                <button onclick="setDifficulty('easy')">쉬움 (6쌍)</button>
+                <button onclick="setDifficulty('medium')">보통 (8쌍)</button>
+                <button onclick="setDifficulty('hard')">어려움 (10쌍)</button>
+            </div>
+        </div>
+        
+        <div id="game-screen">
+            <h1>세계 책의 날 기념 북퀴즈</h1>
+            <p class="subtitle">책 제목과 내용을 매칭해보세요!</p>
+            
+            <div class="game-info">
+                <div>시간: <span id="timer">00:00</span></div>
+                <div>시도 횟수: <span id="attempts">0</span></div>
+                <div>점수: <span id="score">0</span></div>
+            </div>
+            
+            <div class="game-board" id="game-board"></div>
+            
+            <button id="restart-btn">다시 시작</button>
+        </div>
+        
+        <div id="final-screen">
+            <h1>게임 종료!</h1>
+            <div class="star-rating" id="star-rating"></div>
+            <div id="result"></div>
+            <button onclick="location.reload()">다시 시작</button>
+        </div>
+    </div>
+
+    <script>
+        // 책 정보 데이터
+        const bookData = [
+            {
+                title: "데미안",
+                content: "\"자기 자신의 내면의 소리에 충실하라. 당신의 내부에 있는 것을 발견하고, 그것에 충실하게 따르는 것이 유일한 길이다.\""
+            },
+            {
+                title: "어린 왕자",
+                content: "\"가장 중요한 것은 눈에 보이지 않는다. 오직 마음으로만 볼 수 있다.\""
+            },
+            {
+                title: "노인과 바다",
+                content: "\"사람은 패배할 수는 있어도 결코 파멸되지는 않는다.\""
+            },
+            {
+                title: "그리스인 조르바",
+                content: "\"주인님, 나는 당신이 이해하지 못할 것을 알고 있습니다. 인생이 무엇입니까? 그것은 미친 짓입니다! 삶이 무엇입니까? 그것은 춤추는 것입니다!\""
+            },
+            {
+                title: "동물농장",
+                content: "\"모든 동물은 평등하다. 그러나 어떤 동물들은 다른 동물들보다 더 평등하다.\""
+            },
+            {
+                title: "1984",
+                content: "\"빅 브라더가 당신을 지켜보고 있다. 두 개의 서로 반대되는 개념을 동시에 믿고, 둘 다 동시에 진실이라고 받아들이는 능력이 필요하다.\""
+            },
+            {
+                title: "호밀밭의 파수꾼",
+                content: "\"내가 정말로 하고 싶은 일은 호밀밭에 서 있는 것이다. 아이들이 절벽에서 떨어지기 직전에 붙잡아 주는 파수꾼이 되는 것이다.\""
+            },
+            {
+                title: "죄와 벌",
+                content: "\"만약 모든 것이 허용된다면, 과연 범죄가 존재할까? 한 명의 천한 노파를 죽이고, 그 돈으로 수천 명의 생명을 구한다면 어떨까?\""
+            },
+            {
+                title: "카라마조프가의 형제들",
+                content: "\"모든 것이 허용된다면 신도 존재하지 않는다. 만약 신이 존재하지 않는다면 모든 것이 허용된다.\""
+            },
+            {
+                title: "변신",
+                content: "\"그레고르 잠자는 어느 날 아침에 잠에서 깨어났을 때, 자신이 침대 위에서 한 마리의 거대한 벌레로 변해 있는 것을 발견했다.\""
+            },
+            {
+                title: "햄릿",
+                content: "\"사느냐, 죽느냐. 그것이 문제로다. 영혼의 고뇌를 참는 것이 더 고귀한가, 아니면 불운의 화살을 맞서 끝내는 것이 나은가.\""
+            },
+            {
+                title: "오만과 편견",
+                content: "\"재산을 가진 독신남은 반드시 아내를 찾고 있을 것이라는 것은 널리 인정된 진리이다.\""
+            },
+            {
+                title: "위대한 개츠비",
+                content: "\"그래서 우리는 계속해서 앞으로 나아간다. 과거에 맞서 노를 저으면서, 언제나 흐르는 물결에 거슬러 계속 과거 속으로 되돌아가는 배처럼.\""
+            },
+            {
+                title: "자기 앞의 생",
+                content: "\"나는 그저 살고 싶었다. 그게 나의 유일한 야망이었다. 사실 이건 대단한 야망이었다.\""
+            },
+            {
+                title: "인간 실격",
+                content: "\"사람들에게 정말 무섭다는 생각이 들었다. 나는 사람들의 생활 방식을 이해할 수 없었다.\""
+            }
+        ];
+
+        let cards = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let attempts = 0;
+        let score = 0;
+        let timer;
+        let seconds = 0;
+        let gameStarted = false;
+        let totalPairs = 0;
+
+        function setDifficulty(level) {
+            // 난이도에 따라 카드 수 결정
+            switch(level) {
+                case 'easy':
+                    totalPairs = 6;
+                    break;
+                case 'medium':
+                    totalPairs = 8;
+                    break;
+                case 'hard':
+                    totalPairs = 10;
+                    break;
+                default:
+                    totalPairs = 6;
+            }
+            
+            document.getElementById('intro-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            
+            initGame();
+        }
+
+        function initGame() {
+            // 게임 초기화
+            cards = [];
+            flippedCards = [];
+            matchedPairs = 0;
+            attempts = 0;
+            score = 0;
+            seconds = 0;
+            gameStarted = false;
+            
+            document.getElementById('attempts').textContent = attempts;
+            document.getElementById('score').textContent = score;
+            document.getElementById('timer').textContent = '00:00';
+            
+            clearInterval(timer);
+            
+            // totalPairs 수에 맞게 랜덤하게 책 선택
+            const shuffledBooks = [...bookData].sort(() => 0.5 - Math.random()).slice(0, totalPairs);
+            
+            // 카드 생성 (제목 카드와 내용 카드)
+            for (let book of shuffledBooks) {
+                cards.push({
+                    id: 'title-' + book.title,
+                    content: book.title,
+                    type: 'title',
+                    matched: false,
+                    pair: 'content-' + book.title
+                });
+                
+                cards.push({
+                    id: 'content-' + book.title,
+                    content: book.content,
+                    type: 'content',
+                    matched: false,
+                    pair: 'title-' + book.title
+                });
+            }
+            
+            // 카드 섞기
+            cards.sort(() => 0.5 - Math.random());
+            
+            // 게임 보드에 카드 추가
+            const gameBoard = document.getElementById('game-board');
+            gameBoard.innerHTML = '';
+            
+            cards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'card';
+                cardElement.dataset.id = card.id;
+                
+                cardElement.innerHTML = `
+                    <div class="card-inner">
+                        <div class="card-front">?</div>
+                        <div class="card-back">${card.content}</div>
+                    </div>
+                `;
+                
+                cardElement.addEventListener('click', () => flipCard(card, cardElement));
+                gameBoard.appendChild(cardElement);
+            });
+            
+            // 게임 보드 열 수 설정
+            if (totalPairs <= 6) {
+                gameBoard.style.gridTemplateColumns = 'repeat(4, 1fr)';
+            } else if (totalPairs <= 8) {
+                gameBoard.style.gridTemplateColumns = 'repeat(4, 1fr)';
+            } else {
+                gameBoard.style.gridTemplateColumns = 'repeat(5, 1fr)';
+            }
+            
+            // 다시 시작 버튼 설정
+            document.getElementById('restart-btn').addEventListener('click', initGame);
+        }
+
+        function startTimer() {
+            timer = setInterval(() => {
+                seconds++;
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                document.getElementById('timer').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function flipCard(card, cardElement) {
+            // 이미 매치된 카드거나 이미 뒤집힌 카드는 무시
+            if (card.matched || flippedCards.includes(card) || flippedCards.length >= 2) {
+                return;
+            }
+            
+            // 게임 시작 - 타이머 시작
+            if (!gameStarted) {
+                gameStarted = true;
+                startTimer();
+            }
+            
+            // 카드 뒤집기
+            cardElement.classList.add('flipped');
+            flippedCards.push(card);
+            
+            // 두 카드가 뒤집혔으면 매치 확인
+            if (flippedCards.length === 2) {
+                attempts++;
+                document.getElementById('attempts').textContent = attempts;
+                
+                const [card1, card2] = flippedCards;
+                
+                // 매치 확인
+                if (card1.pair === card2.id && card2.pair === card1.id) {
+                    // 매치 성공
+                    matchedPairs++;
+                    card1.matched = true;
+                    card2.matched = true;
+                    
+                    // 화면 업데이트
+                    document.querySelectorAll(`.card[data-id="${card1.id}"], .card[data-id="${card2.id}"]`)
+                        .forEach(el => el.classList.add('matched'));
+                    
+                    // 점수 계산 (빠를수록 높은 점수)
+                    const baseScore = 100;
+                    const timeBonus = Math.max(0, 300 - seconds);
+                    const attemptPenalty = (attempts - matchedPairs) * 10;
+                    const pairScore = baseScore + timeBonus - attemptPenalty;
+                    
+                    score += Math.max(50, pairScore);
+                    document.getElementById('score').textContent = score;
+                    
+                    flippedCards = [];
+                    
+                    // 모든 쌍을 찾았는지 확인
+                    if (matchedPairs === totalPairs) {
+                        endGame();
+                    }
+                } else {
+                    // 매치 실패, 잠시 후 다시 뒤집기
+                    setTimeout(() => {
+                        document.querySelectorAll(`.card[data-id="${card1.id}"], .card[data-id="${card2.id}"]`)
+                            .forEach(el => el.classList.remove('flipped'));
+                        flippedCards = [];
+                    }, 1000);
+                }
+            }
+        }
+
+        function endGame() {
+            clearInterval(timer);
+            
+            // 결과 계산
+            const timeBonus = Math.max(0, 1000 - seconds * 2);
+            const finalScore = score + timeBonus;
+            
+            // 별점 계산 (최대 5점)
+            let stars;
+            if (finalScore >= 1500) {
+                stars = 5;
+            } else if (finalScore >= 1200) {
+                stars = 4;
+            } else if (finalScore >= 900) {
+                stars = 3;
+            } else if (finalScore >= 600) {
+                stars = 2;
+            } else {
+                stars = 1;
+            }
+            
+            // 별점 표시
+            document.getElementById('star-rating').innerHTML = '★'.repeat(stars) + '☆'.repeat(5 - stars);
+            
+            // 결과 표시
+            const resultText = `
+                <p>총 점수: <strong>${finalScore}</strong></p>
+                <p>소요 시간: ${Math.floor(seconds / 60)}분 ${seconds % 60}초</p>
+                <p>총 시도 횟수: ${attempts}회</p>
+                <p>정확도: ${Math.round((totalPairs / attempts) * 100)}%</p>
+            `;
+            
+            document.getElementById('result').innerHTML = resultText;
+            document.getElementById('result').style.display = 'block';
+            
+            document.getElementById('game-screen').style.display = 'none';
+            document.getElementById('final-screen').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
